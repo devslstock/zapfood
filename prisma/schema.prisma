@@ -1,0 +1,192 @@
+// ZapFood — schema multi-tenant para lojas que recebem pedidos via WhatsApp.
+// SQLite não suporta enum nativo: status/tipos são String, validados via zod/TS union
+// em src/lib/types.ts antes de tocar o banco.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Store {
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  // Número discável (E.164) usado nos links "wa.me" do cardápio digital —
+  // diferente do whatsappPhoneNumberId, que é o ID interno da Cloud API da Meta.
+  whatsappContactPhone  String?
+  whatsappPhoneNumberId String?
+  whatsappToken         String?
+  whatsappVerifyToken   String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  staff               Staff[]
+  categories          Category[]
+  products            Product[]
+  customers           Customer[]
+  orders              Order[]
+  conversationStates  ConversationState[]
+}
+
+model Staff {
+  id           String   @id @default(cuid())
+  storeId      String
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String // "OWNER" | "STAFF"
+  createdAt    DateTime @default(now())
+
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  statusChanges  OrderStatusEvent[]
+
+  @@index([storeId])
+}
+
+model Session {
+  id        String   @id
+  staffId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  storeId   String
+  name      String
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([storeId])
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  storeId     String
+  categoryId  String
+  name        String
+  description String?
+  priceCents  Int
+  imageUrl    String?
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  store     Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category  Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  addOns    ProductAddOn[]
+  orderItems OrderItem[]
+
+  @@index([storeId])
+  @@index([categoryId])
+}
+
+model ProductAddOn {
+  id         String  @id @default(cuid())
+  productId  String
+  name       String
+  priceCents Int
+  active     Boolean @default(true)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  storeId   String
+  phone     String
+  name      String?
+  createdAt DateTime @default(now())
+
+  store              Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders             Order[]
+  conversationStates ConversationState[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+}
+
+model ConversationState {
+  id                 String   @id @default(cuid())
+  storeId            String
+  customerId         String
+  step               String
+  cart               String // JSON-encoded CartLine[]
+  pendingCategoryId  String?
+  pendingProductId   String?
+  deliveryType       String?
+  address            String?
+  paymentMethod      String?
+  updatedAt          DateTime @updatedAt
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, customerId])
+  @@index([storeId])
+}
+
+// Order.id também funciona como número de exibição ("Pedido #7") — evita o limite
+// do SQLite de autoincrement só ser suportado no campo @id.
+model Order {
+  id             Int      @id @default(autoincrement())
+  storeId        String
+  customerId     String
+  status         String   @default("RECEBIDO")
+  deliveryType   String
+  address        String?
+  paymentMethod  String
+  subtotalCents  Int
+  totalCents     Int
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  store         Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer      Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  statusHistory OrderStatusEvent[]
+
+  @@index([storeId])
+  @@index([storeId, status])
+}
+
+model OrderItem {
+  id                       String  @id @default(cuid())
+  orderId                  Int
+  productId                String?
+  productNameSnapshot      String
+  unitPriceCentsSnapshot   Int
+  quantity                 Int
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model OrderStatusEvent {
+  id               String   @id @default(cuid())
+  orderId          Int
+  status           String
+  changedAt        DateTime @default(now())
+  changedByStaffId String?
+
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByStaff Staff? @relation(fields: [changedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
