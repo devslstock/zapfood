@@ -1,6 +1,6 @@
 // ZapFood — schema multi-tenant para lojas que recebem pedidos via WhatsApp.
-// SQLite não suporta enum nativo: status/tipos são String, validados via zod/TS union
-// em src/lib/types.ts antes de tocar o banco.
+// Status/tipos são String (validados via TS union em src/lib/domain.ts) em vez de
+// enum nativo do Postgres, para manter o mesmo código caso o provider mude de novo.
 
 generator client {
   provider = "prisma-client"
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Store {

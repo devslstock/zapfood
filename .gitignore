@@ -43,10 +43,6 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# database (SQLite dev file, migrations are still versioned)
-/prisma/dev.db
-/dev.db
-
 # playwright
 /test-results/
 /playwright-report/

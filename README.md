@@ -5,16 +5,18 @@ Plataforma que transforma o WhatsApp de uma loja em um canal de pedidos automati
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript) + **Tailwind CSS v4**
-- **Prisma 7** + **SQLite** (via driver adapter `@prisma/adapter-better-sqlite3`) — zero infraestrutura externa
+- **Prisma 7** + **PostgreSQL** (via driver adapter `@prisma/adapter-pg`)
 - Autenticação própria (cookie assinado por HMAC + bcrypt), sem depender de Edge runtime
 - **Server-Sent Events** para o painel de pedidos quase em tempo real
 - **Vitest** (motor de conversa) + **Playwright** (fluxo ponta a ponta)
 
 ## Como rodar
 
+Requer um PostgreSQL rodando (local ou hospedado — Vercel Postgres/Neon/Supabase funcionam).
+
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env   # ajuste DATABASE_URL para o seu Postgres
 npx prisma migrate dev
 npx prisma db seed
 npm run dev
@@ -31,6 +33,16 @@ Acesse `http://localhost:3000`. Login de demonstração em `/admin/login`:
 npx vitest run          # motor de conversa (FSM), sem banco/navegador
 npx playwright test     # fluxo completo com o navegador (requer `npm run dev` rodando)
 ```
+
+## Deploy na Vercel
+
+1. Crie um banco Postgres (ex: aba **Storage** do próprio projeto na Vercel, que provisiona via Neon; ou Neon/Supabase direto).
+2. Configure as variáveis de ambiente do projeto na Vercel (Settings → Environment Variables):
+   - `DATABASE_URL` — connection string do Postgres.
+   - `SESSION_SECRET` — um valor aleatório forte (`openssl rand -hex 32`).
+   - `NEXT_PUBLIC_APP_URL` — a URL pública do deploy (ex: `https://seu-projeto.vercel.app`).
+   - `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_VERIFY_TOKEN` — opcionais, só necessários para credenciais globais de fallback.
+3. Pronto — o script `build` já roda `prisma migrate deploy` antes do `next build`, então as migrations são aplicadas automaticamente a cada deploy (e `postinstall` já roda `prisma generate`).
 
 ## Arquitetura
 
