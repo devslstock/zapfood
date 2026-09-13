@@ -1,0 +1,393 @@
+// ZaapFood — schema multi-tenant para lojas que recebem pedidos via WhatsApp.
+// Status/tipos são String (validados via TS union em src/lib/domain.ts) em vez de
+// enum nativo do Postgres, para manter o mesmo código caso o provider mude de novo.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Store {
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  // Número discável (E.164) usado nos links "wa.me" do cardápio digital —
+  // diferente do whatsappPhoneNumberId, que é o ID interno da Cloud API da Meta.
+  whatsappContactPhone  String?
+  whatsappPhoneNumberId String?
+  whatsappToken         String?
+  whatsappVerifyToken   String?
+  whatsappWabaId        String?
+
+  // Categoria informativa preenchida no cadastro (texto livre, exibida pro
+  // super-admin) e aceite dos termos/política de privacidade.
+  category        String?
+  termsAcceptedAt DateTime?
+
+  // Chave PIX da própria loja (CPF/CNPJ, e-mail, telefone ou chave aleatória)
+  // — usada só pra gerar o QR code "copia e cola" impresso na comanda do
+  // pedido, pro cliente final pagar. Nunca processa o pagamento de verdade
+  // (sem confirmação automática), é só uma forma de exibir o QR pronto.
+  pixKey String?
+  // Preenchidos pelo botão "Testar Conexão" em Configurações — chamada real à
+  // Graph API da Meta, não um valor calculado a cada carregamento da página.
+  whatsappConnectionOk  Boolean?
+  whatsappLastTestedAt  DateTime?
+
+  // Taxa padrão cobrada do cliente final em pedidos de entrega (deliveryType
+  // "ENTREGA") quando o bairro informado não bate com nenhum item do
+  // catálogo de bairros (DeliveryZone) — zerada em retirada. Ver
+  // src/lib/orders/createOrder.ts.
+  deliveryFeeCents Int @default(0)
+  deliveryZones    DeliveryZone[]
+
+  // Dados cadastrais da empresa cliente (preenchidos pelo próprio dono em
+  // Configurações). Usados pelo painel de super-admin da plataforma.
+  cnpjCpf              String?
+  addressStreet        String?
+  addressNumber        String?
+  addressComplement    String?
+  addressNeighborhood  String?
+  addressCity          String?
+  addressState         String?
+  addressZip           String?
+
+  // Controle de acesso e financeiro da plataforma (só o super-admin edita).
+  // `active = false` bloqueia login do admin, cardápio público e webhook do
+  // WhatsApp — é a "chave geral" usada em casos de inadimplência.
+  active           Boolean @default(true)
+  paymentStatus    String  @default("EM_DIA") // "EM_DIA" | "INADIMPLENTE"
+  planMonthlyCents Int?
+  adminNotes       String?
+  // Preenchido sempre que a loja é desativada (botão manual ou webhook do
+  // Asaas) e limpo se reativada — usado pra contar "Cancelamentos" no
+  // gráfico de receita global do super-admin.
+  deactivatedAt    DateTime?
+
+  // Assinatura recorrente no Asaas (cartão/PIX) — criada automaticamente no
+  // cadastro público (ver src/app/cadastro/actions.ts). O webhook em
+  // /api/webhooks/asaas usa asaasCustomerId para achar a loja e atualizar
+  // active/paymentStatus sozinho, sem controle manual do super-admin.
+  asaasCustomerId     String?
+  asaasSubscriptionId String?
+  trialEndsAt         DateTime?
+
+  // Identidade visual do cardápio digital (capa + logo) e horário de
+  // funcionamento (JSON: um WeekDayHours por dia da semana — ver src/lib/openingHours.ts).
+  logoUrl          String?
+  coverImageUrl    String?
+  openingHoursJson String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  staff               Staff[]
+  categories          Category[]
+  products            Product[]
+  customers           Customer[]
+  orders              Order[]
+  conversationStates  ConversationState[]
+  menuViews           MenuView[]
+}
+
+model Staff {
+  id              String    @id @default(cuid())
+  storeId         String
+  name            String
+  email           String    @unique
+  passwordHash    String
+  role            String // "OWNER" | "BALCAO" | "COZINHEIRO" | "CAIXA" | "ENTREGADOR"
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Permissões de acesso ao painel, configuráveis por membro em Equipe
+  // (ignoradas para role "OWNER", que sempre tem acesso total). "Financeiro"
+  // cobre a seção de Assinatura em Configurações; "Configurações" cobre o
+  // resto (dados da loja, WhatsApp). Gestão de equipe é sempre só do dono,
+  // mesmo com canViewSettings, para evitar que um membro se autopromova.
+  canViewOrders   Boolean @default(true)
+  canViewProducts Boolean @default(false)
+  canViewReports  Boolean @default(false)
+  canViewFinance  Boolean @default(false)
+  canViewSettings Boolean @default(false)
+  canViewCustomers Boolean @default(false)
+
+  store                   Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sessions                Session[]
+  statusChanges           OrderStatusEvent[]
+  emailVerificationTokens EmailVerificationToken[]
+
+  @@index([storeId])
+}
+
+model Session {
+  id        String   @id
+  staffId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+}
+
+// Confirmação de e-mail obrigatória no cadastro: o Staff só ganha sessão
+// (login liberado) depois de acessar o link com este token.
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  staffId   String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+}
+
+// Conta de quem opera a plataforma ZaapFood (não pertence a nenhuma loja) —
+// acessa /super-admin para gerenciar todas as lojas clientes.
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  sessions PlatformSession[]
+}
+
+model PlatformSession {
+  id        String   @id
+  adminId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+}
+
+// Linha única (id fixo "singleton") com o preço do plano único cobrado das
+// lojas que se cadastram sozinhas — editável pelo super-admin em
+// /super-admin/configuracoes. Mudar aqui só afeta assinaturas novas; as já
+// criadas no Asaas mantêm o valor travado no momento da assinatura.
+model PlatformSettings {
+  id                      String   @id @default("singleton")
+  defaultPlanMonthlyCents Int      @default(9990)
+  updatedAt               DateTime @updatedAt
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  storeId   String
+  name      String
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([storeId])
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  storeId     String
+  categoryId  String
+  name        String
+  description String?
+  priceCents  Int
+  imageUrl    String?
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  store        Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  optionGroups ProductOptionGroup[]
+  orderItems   OrderItem[]
+
+  @@index([storeId])
+  @@index([categoryId])
+}
+
+// Grupos de complementos/sabores por produto — modelo inspirado no catálogo
+// do iFood (optionGroups/options): minSelect define se o grupo é obrigatório
+// (>=1) e maxSelect se é escolha única (1, vira rádio) ou múltipla (>1, vira
+// checkbox), tanto no admin do catálogo quanto no cardápio digital.
+model ProductOptionGroup {
+  id        String @id @default(cuid())
+  productId String
+  name      String // "Escolha seu acompanhamento", "Adicionais"
+  minSelect Int    @default(0)
+  maxSelect Int    @default(1)
+  sortOrder Int    @default(0)
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options ProductOption[]
+
+  @@index([productId])
+}
+
+model ProductOption {
+  id         String  @id @default(cuid())
+  groupId    String
+  name       String
+  priceCents Int     @default(0)
+  imageUrl   String?
+  active     Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  group ProductOptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  storeId   String
+  phone     String
+  name      String?
+  // Hash do PIN de 4 dígitos (mesmo esquema de hashPassword/verifyPassword
+  // usado pro Staff) — nulo enquanto o cliente nunca salvou uma conta no
+  // checkout do cardápio digital. Sem PIN não dá pra "puxar" os dados salvos.
+  pinHash   String?
+  createdAt DateTime @default(now())
+
+  store              Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders             Order[]
+  conversationStates ConversationState[]
+  addresses          CustomerAddress[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+}
+
+// Endereços salvos de quem optou por "Criar conta" no checkout do cardápio
+// digital — um cliente pode ter vários, editáveis ao serem reaproveitados.
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  customerId String
+  address    String
+  addressLat Float?
+  addressLng Float?
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// Catálogo de bairros atendidos por uma loja, cada um com sua própria taxa
+// de entrega — substitui a taxa única antiga (Store.deliveryFeeCents, que
+// agora só serve de taxa padrão pra bairros fora do catálogo).
+model DeliveryZone {
+  id           String @id @default(cuid())
+  storeId      String
+  neighborhood String
+  feeCents     Int
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, neighborhood])
+  @@index([storeId])
+}
+
+model ConversationState {
+  id                 String   @id @default(cuid())
+  storeId            String
+  customerId         String
+  step               String
+  cart               String // JSON-encoded CartLine[]
+  pendingCategoryId  String?
+  pendingProductId   String?
+  deliveryType       String?
+  address            String?
+  paymentMethod      String?
+  updatedAt          DateTime @updatedAt
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, customerId])
+  @@index([storeId])
+}
+
+// Order.id também funciona como número de exibição ("Pedido #7") — evita o limite
+// do SQLite de autoincrement só ser suportado no campo @id.
+model Order {
+  id             Int      @id @default(autoincrement())
+  storeId        String
+  customerId     String
+  status         String   @default("RECEBIDO")
+  deliveryType   String
+  address        String?
+  // Localização confirmada pelo cliente no mapa (fluxo de checkout do
+  // cardápio digital) — nulo para pedidos feitos pelo WhatsApp.
+  addressLat     Float?
+  addressLng     Float?
+  paymentMethod  String
+  subtotalCents  Int
+  deliveryFeeCents Int @default(0)
+  totalCents     Int
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  store         Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer      Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  statusHistory OrderStatusEvent[]
+
+  @@index([storeId])
+  @@index([storeId, status])
+}
+
+model OrderItem {
+  id                        String  @id @default(cuid())
+  orderId                   Int
+  productId                 String?
+  productNameSnapshot       String
+  unitPriceCentsSnapshot    Int
+  quantity                  Int
+  // Complementos/sabores escolhidos (cardápio digital só — motor do WhatsApp
+  // ainda não pergunta adicionais): preço somado ao unitário e um resumo em
+  // JSON ([{ groupName, optionName, priceCents }]) pro Kanban/impressão exibirem.
+  optionsTotalCentsSnapshot Int     @default(0)
+  optionsSnapshot           String?
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// Uma linha por carregamento de /loja/[slug] — usada só para calcular "taxa
+// de conversão" (pedidos / visitas) nos Relatórios. Inserção é best-effort
+// (nunca bloqueia o cardápio se falhar).
+model MenuView {
+  id        String   @id @default(cuid())
+  storeId   String
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+}
+
+model OrderStatusEvent {
+  id               String   @id @default(cuid())
+  orderId          Int
+  status           String
+  changedAt        DateTime @default(now())
+  changedByStaffId String?
+
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByStaff Staff? @relation(fields: [changedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
