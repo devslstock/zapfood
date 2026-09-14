@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getStoreOpenStatus } from "@/lib/openingHours";
 import { DigitalMenu } from "./DigitalMenu";
+import { SlDevFooter } from "@/components/SlDevFooter";
 
 export default async function StoreMenuPage({
   params,
@@ -37,14 +38,17 @@ export default async function StoreMenuPage({
 
   if (!store.active) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-16">
-        <div className="max-w-md text-center">
-          <h1 className="text-xl font-bold text-zinc-900">Cardápio indisponível</h1>
-          <p className="mt-2 text-sm text-zinc-500">
-            Esta loja está temporariamente fora do ar. Tente novamente mais tarde.
-          </p>
+      <>
+        <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-16">
+          <div className="max-w-md text-center">
+            <h1 className="text-xl font-bold text-zinc-900">Cardápio indisponível</h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Esta loja está temporariamente fora do ar. Tente novamente mais tarde.
+            </p>
+          </div>
         </div>
-      </div>
+        <SlDevFooter />
+      </>
     );
   }
 

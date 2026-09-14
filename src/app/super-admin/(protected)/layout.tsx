@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { requirePlatformSession } from "@/lib/auth/guards";
 import { SidebarShell } from "@/components/admin/SidebarShell";
+import { SlDevFooter } from "@/components/SlDevFooter";
 import { platformLogoutAction } from "./actions";
 
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
@@ -28,7 +29,10 @@ export default async function PlatformLayout({ children }: { children: ReactNode
           </form>
         }
       />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
+        <div className="flex-1">{children}</div>
+        <SlDevFooter />
+      </main>
     </div>
   );
 }

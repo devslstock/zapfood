@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SlDevFooter } from "@/components/SlDevFooter";
 
 export default async function VerifiqueEmailPage({
   searchParams,
@@ -8,6 +9,7 @@ export default async function VerifiqueEmailPage({
   const { email, invoiceUrl } = await searchParams;
 
   return (
+    <>
     <div className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-16">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg ring-1 ring-zinc-100">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-2xl">
@@ -54,5 +56,7 @@ export default async function VerifiqueEmailPage({
         </Link>
       </div>
     </div>
+    <SlDevFooter />
+    </>
   );
 }

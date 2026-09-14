@@ -1,3 +1,5 @@
+import { SlDevFooter } from "@/components/SlDevFooter";
+
 export function MarketingFooter() {
   return (
     <footer className="border-t border-zinc-100 bg-white py-10">
@@ -5,6 +7,7 @@ export function MarketingFooter() {
         <p>© {new Date().getFullYear()} ZaapFood. Todos os direitos reservados.</p>
         <p>Feito para pequenos negócios de comida venderem mais pelo WhatsApp.</p>
       </div>
+      <SlDevFooter />
     </footer>
   );
 }

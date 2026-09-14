@@ -13,6 +13,7 @@ import {
 import { lookupCep } from "@/lib/viacep";
 import { resolveDeliveryFeeCents, parseNeighborhoodFromFormattedAddress } from "@/lib/deliveryZone";
 import { ProductDetailSheet } from "./ProductDetailSheet";
+import { SlDevFooter } from "@/components/SlDevFooter";
 import { AddressMap } from "./AddressMap";
 import {
   buildLineId,
@@ -480,6 +481,7 @@ export function DigitalMenu({
             </div>
           </section>
         ))}
+        <SlDevFooter />
       </div>
 
       {totalItems > 0 && (
