@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { formatCents } from "@/lib/money";
-import { ZAAPFOOD_MONTHLY_PRICE_CENTS } from "@/lib/pricing";
 
 const FEATURES = [
   "Pedidos ilimitados pelo WhatsApp",
@@ -10,7 +9,7 @@ const FEATURES = [
   "Sem comissão por pedido, mensalidade fixa",
 ];
 
-export function PricingCta() {
+export function PricingCta({ priceCents }: { priceCents: number }) {
   return (
     <section id="planos" className="mx-auto max-w-4xl px-6 py-20">
       <div className="rounded-3xl border border-brand/20 bg-white p-10 text-center shadow-lg">
@@ -18,7 +17,7 @@ export function PricingCta() {
           Plano único, sem letras miúdas
         </span>
         <p className="mt-6 text-5xl font-extrabold text-zinc-900">
-          {formatCents(ZAAPFOOD_MONTHLY_PRICE_CENTS)}
+          {formatCents(priceCents)}
           <span className="text-lg font-medium text-zinc-500">/mês</span>
         </p>
         <ul className="mx-auto mt-8 flex max-w-sm flex-col gap-3 text-left text-sm text-zinc-700">

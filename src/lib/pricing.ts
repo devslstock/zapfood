@@ -1,1 +1,0 @@
-export const ZAAPFOOD_MONTHLY_PRICE_CENTS = 8990;

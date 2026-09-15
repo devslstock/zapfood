@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { formatCents } from "@/lib/money";
-import { ZAAPFOOD_MONTHLY_PRICE_CENTS } from "@/lib/pricing";
 
-export function SavingsCalculator() {
+export function SavingsCalculator({ priceCents }: { priceCents: number }) {
   const [ordersPerMonth, setOrdersPerMonth] = useState(300);
   const [avgTicket, setAvgTicket] = useState(35);
   const [commissionPercent, setCommissionPercent] = useState(20);
@@ -12,9 +11,9 @@ export function SavingsCalculator() {
   const { competitorCostCents, savingsCents } = useMemo(() => {
     const revenueCents = ordersPerMonth * avgTicket * 100;
     const competitorCostCents = Math.round((revenueCents * commissionPercent) / 100);
-    const savingsCents = competitorCostCents - ZAAPFOOD_MONTHLY_PRICE_CENTS;
+    const savingsCents = competitorCostCents - priceCents;
     return { competitorCostCents, savingsCents };
-  }, [ordersPerMonth, avgTicket, commissionPercent]);
+  }, [ordersPerMonth, avgTicket, commissionPercent, priceCents]);
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-20">
@@ -87,7 +86,7 @@ export function SavingsCalculator() {
             <div>
               <p className="text-sm text-zinc-300">Com o ZaapFood você paga</p>
               <p className="text-3xl font-bold text-white">
-                {formatCents(ZAAPFOOD_MONTHLY_PRICE_CENTS)}
+                {formatCents(priceCents)}
                 <span className="text-base font-normal text-zinc-400">/mês</span>
               </p>
             </div>
