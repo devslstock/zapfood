@@ -10,6 +10,9 @@ import { formatCents } from "@/lib/money";
 import { getPlatformSettings } from "@/lib/platformSettings";
 import { SubscriptionCheckoutButton } from "./SubscriptionCheckoutButton";
 import { TestWhatsappConnectionButton } from "./TestWhatsappConnectionButton";
+import { WhatsappConnectionTabs } from "./WhatsappConnectionTabs";
+import { EvolutionConnectPanel } from "./EvolutionConnectPanel";
+import type { WhatsappProvider } from "@/lib/domain";
 import { TeamManagement } from "./TeamManagement";
 import { DeliveryZoneManager } from "./DeliveryZoneManager";
 import {
@@ -284,6 +287,15 @@ export default async function SettingsPage() {
               ficam registradas no simulador (<code className="rounded bg-zinc-100 px-1">/admin/simulator</code>) em vez de saírem pelo WhatsApp de verdade.
             </p>
 
+            <WhatsappConnectionTabs
+              initialProvider={store.whatsappProvider as WhatsappProvider}
+              evolutionPanel={
+                <EvolutionConnectPanel
+                  hasAcceptedRisk={!!store.evolutionRiskAcceptedAt}
+                  isConnected={store.whatsappProvider === "EVOLUTION" && !!store.whatsappConnectionOk}
+                />
+              }
+            >
             <details className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 open:pb-5">
               <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
                 Como conseguir as credenciais da Cloud API (passo a passo)
@@ -422,6 +434,7 @@ export default async function SettingsPage() {
             <div className="mt-4 border-t border-zinc-100 pt-4">
               <TestWhatsappConnectionButton />
             </div>
+            </WhatsappConnectionTabs>
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-zinc-100">

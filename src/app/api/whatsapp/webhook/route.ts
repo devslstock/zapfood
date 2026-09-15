@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseWebhookPayload } from "@/lib/whatsapp/payload";
-import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
-import { runTurn } from "@/lib/engine/runTurn";
+import { handleIncomingMessage } from "@/lib/whatsapp/incoming";
 
 // Handshake de verificação da Meta: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 export async function GET(request: NextRequest) {
@@ -54,16 +53,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const { messages: replies } = await runTurn(
-        store.id,
-        message.from,
-        message.text,
-        message.contactName
-      );
-
-      for (const reply of replies) {
-        await sendWhatsAppMessage(store, message.from, reply);
-      }
+      await handleIncomingMessage(store, message.from, message.text, message.contactName);
     } catch (error) {
       console.error("[whatsapp webhook] erro ao processar mensagem", error);
     }

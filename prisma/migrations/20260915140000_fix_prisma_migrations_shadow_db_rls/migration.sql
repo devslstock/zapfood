@@ -1,0 +1,14 @@
+-- A migração anterior (enable_row_level_security) habilitou RLS em TODAS as
+-- tabelas do schema public, incluindo "_prisma_migrations" (tabela interna de
+-- controle do próprio Prisma, não dado de negócio). Isso quebrou o
+-- "shadow database" que "prisma migrate dev" usa pra validar migrações novas
+-- localmente: ao re-aplicar o histórico de migrations do zero num banco
+-- temporário, o Postgres tenta alterar "_prisma_migrations" antes dela existir
+-- como relação de verdade nesse fluxo, e falha com "relation does not exist".
+--
+-- "prisma migrate deploy" (o que roda de verdade no build da Vercel) nunca
+-- usa shadow database, então isso nunca afetou produção — só o "migrate dev"
+-- local. Desabilitando RLS de novo só nessa tabela interna (ela não expõe
+-- dado sensível nenhum, só nomes/timestamps de migrations) resolve o
+-- travamento sem reverter a proteção nas tabelas de dado de verdade.
+ALTER TABLE "public"."_prisma_migrations" DISABLE ROW LEVEL SECURITY;

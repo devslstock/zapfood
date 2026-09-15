@@ -23,6 +23,31 @@ model Store {
   whatsappVerifyToken   String?
   whatsappWabaId        String?
 
+  // Qual integração está ativa para ENVIO/RECEBIMENTO de mensagens desta loja
+  // agora — "META" (Cloud API, campos acima) ou "EVOLUTION" (QR Code/Baileys,
+  // campos abaixo). Só uma fica "no comando" por vez; salvar as credenciais
+  // Meta ou concluir a conexão por QR Code é o que troca este valor (nunca a
+  // simples troca de aba na UI). Novas lojas nascem "META" (com os campos
+  // Meta em branco = modo demo, igual hoje) para não mudar nada do
+  // comportamento atual.
+  whatsappProvider String @default("META")
+
+  // Nome da instance criada no servidor self-hosted da Evolution API
+  // (convenção: "store-{id}") — é a chave usada para rotear o webhook
+  // inbound até esta loja, o mesmo papel que whatsappPhoneNumberId cumpre
+  // para a Meta. Único porque vira o critério de lookup direto no webhook.
+  evolutionInstanceName String? @unique
+  // Segredo aleatório gerado ao criar a instance e embutido como query param
+  // na URL de webhook cadastrada na Evolution (?token=...) — a Evolution não
+  // tem handshake de verificação nem assinatura HMAC como a Meta, então esse
+  // token é a única defesa contra alguém forjar uma chamada de "mensagem
+  // recebida" para esta loja. Ver src/app/api/whatsapp/evolution-webhook/route.ts.
+  evolutionWebhookToken String?
+  // Quando a loja aceitou o aviso de risco de banimento do número (conexão
+  // via WhatsApp Web/Baileys não é o método oficial da Meta) — obrigatório
+  // antes de gerar o 1º QR Code. Ver EvolutionConnectPanel.tsx.
+  evolutionRiskAcceptedAt DateTime?
+
   // Categoria informativa preenchida no cadastro (texto livre, exibida pro
   // super-admin) e aceite dos termos/política de privacidade.
   category        String?
@@ -33,8 +58,10 @@ model Store {
   // pedido, pro cliente final pagar. Nunca processa o pagamento de verdade
   // (sem confirmação automática), é só uma forma de exibir o QR pronto.
   pixKey String?
-  // Preenchidos pelo botão "Testar Conexão" em Configurações — chamada real à
-  // Graph API da Meta, não um valor calculado a cada carregamento da página.
+  // Status da conexão de WhatsApp ativa (Meta ou Evolution, ver whatsappProvider
+  // acima) — preenchido pelo botão "Testar Conexão" (Meta) ou pela confirmação
+  // de conexão da Evolution API (webhook/poll), nunca um valor calculado a
+  // cada carregamento da página.
   whatsappConnectionOk  Boolean?
   whatsappLastTestedAt  DateTime?
 

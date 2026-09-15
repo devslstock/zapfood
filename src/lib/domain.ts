@@ -17,6 +17,11 @@ export type DeliveryType = (typeof DELIVERY_TYPES)[number];
 export const PAYMENT_METHODS = ["DINHEIRO", "CARTAO", "PIX"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+// Qual integração de WhatsApp está ativa para uma loja — "META" (Cloud API
+// oficial) ou "EVOLUTION" (QR Code/Baileys, self-hosted). Ver Store.whatsappProvider.
+export const WHATSAPP_PROVIDERS = ["META", "EVOLUTION"] as const;
+export type WhatsappProvider = (typeof WHATSAPP_PROVIDERS)[number];
+
 export const ROLES = ["OWNER", "BALCAO", "COZINHEIRO", "CAIXA", "ENTREGADOR"] as const;
 export type Role = (typeof ROLES)[number];
 

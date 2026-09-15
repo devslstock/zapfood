@@ -22,3 +22,14 @@ export function getWhatsappWebhookUrl(): string {
   const base = rootDomain ? `https://${rootDomain}` : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   return `${base}/api/whatsapp/webhook`;
 }
+
+// URL de webhook individual por loja, cadastrada automaticamente na Evolution
+// API ao criar a instance (diferente do webhook único da Meta acima) — o
+// instanceName + token na query string são a única autenticação desse
+// webhook (a Evolution não tem handshake de verificação nem assinatura HMAC
+// como a Meta). Ver src/app/api/whatsapp/evolution-webhook/route.ts.
+export function getEvolutionWebhookUrl(instanceName: string, token: string): string {
+  const rootDomain = process.env.ROOT_DOMAIN;
+  const base = rootDomain ? `https://${rootDomain}` : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return `${base}/api/whatsapp/evolution-webhook?instance=${encodeURIComponent(instanceName)}&token=${encodeURIComponent(token)}`;
+}

@@ -42,6 +42,10 @@ export async function updateWhatsappSettingsAction(formData: FormData) {
       whatsappWabaId: parsed.whatsappWabaId || null,
       whatsappToken: parsed.whatsappToken || null,
       whatsappVerifyToken: parsed.whatsappVerifyToken || null,
+      // Salvar o formulário da Meta volta a integração ativa pra "META" —
+      // não apaga uma instance da Evolution que porventura já exista, só
+      // marca como não sendo mais a que manda mensagens agora.
+      whatsappProvider: "META",
       // Qualquer edição nas credenciais invalida o último teste de conexão —
       // evita mostrar "Conectado" com um token que acabou de ser trocado.
       whatsappConnectionOk: null,
